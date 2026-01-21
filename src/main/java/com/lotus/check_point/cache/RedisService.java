@@ -1,0 +1,10 @@
+package com.lotus.check_point.cache;
+
+public interface RedisService {
+    void setString(String key, String value);
+    String getString(String key);
+
+    void setObject(String key, Object value);
+    <T> T getObject(String key, Class<T> targetClass);
+    boolean delete(String Key);
+}

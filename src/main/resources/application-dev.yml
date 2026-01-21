@@ -1,0 +1,38 @@
+server:
+    port: 8888
+spring:
+    jpa:
+        database: mysql
+        hibernate:
+            ddl-auto: update
+        show-sql: true
+        properties:
+            dialect: org.hibernate.dialect.MySQL8Dialect
+            hibernate:
+                use-sql-comments: true
+    
+    datasource:
+        url: jdbc:mysql://localhost:3316/dbShop?useAllowPublicKeyRetrieval=true&useSSL=true&serverTimezone=UTC&useUnicode=true
+        username: tienDev
+        password: root1234
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        hikari:
+            max-lifetime: 300000
+            idle-timeout: 120000
+            connection-timeout: 20000
+    data:
+        redis:
+            host: 127.0.0.1
+            port: 6379
+            password: 
+            lettuce:
+                pool:
+                    max-active: 8 #8 luồng có thể thực thi 
+                    max-idle: 8 #tồn tại cùng lúc 8 luồng
+                    min-idle: 0
+                    max-wait: -1ms
+            connect-timeout: 30000
+    
+    threads:
+        virtual:
+            enabled: true
