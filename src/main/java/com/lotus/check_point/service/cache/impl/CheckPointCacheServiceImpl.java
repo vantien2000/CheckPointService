@@ -19,7 +19,6 @@ import com.lotus.check_point.repository.CheckPointRepository;
 import com.lotus.check_point.repository.UserRepository;
 import com.lotus.check_point.service.cache.CheckPointCacheService;
 
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 
 @Service
@@ -65,7 +64,7 @@ public class CheckPointCacheServiceImpl implements CheckPointCacheService {
         try {
             // nếu chưa có trong database thử kiểm tra trong cache có chưa
             CheckPointEntity checkPointEntity = redisService.getObject(genCacheKey(userId), CheckPointEntity.class);
-            if (checkPointEntity != null) return checkPointEntity;
+            if (checkPointEntity != null) throw new RuntimeException("Ngày hôm nay đã tích điểm rồi");
 
             boolean isLocked = dLock.tryLock(5, 10, TimeUnit.SECONDS); // luồng khác đợi 5s để nhận khóa, và sau l0s lock tự xóa
             if (!isLocked) {// chưa locked
@@ -77,22 +76,17 @@ public class CheckPointCacheServiceImpl implements CheckPointCacheService {
 
         } catch (Exception e) {
             dLock.unlock(); // buộc unlock bất kể xử lý xong hay chưa
+            throw new RuntimeException(e.getMessage());
         } finally {
             if (dLock.isLocked()) {
                 dLock.unlock();
             }
         }
-
-        return null;
     }
 
     // code nguu viet lai
     @Transactional
     public CheckPointEntity changeCheckpoint(Long userId) {
-        // 1. Dùng Pessimistic Lock để tránh cộng điểm sai khi request đồng thời
-        UserEntity userEntity = userRepository.findUserForUpdate(userId) 
-            .orElseThrow(() -> new EntityNotFoundException("User not found"));
-
         // 2. Lấy dữ liệu điểm
         int countChecked = checkPointRepository.GetCountCheckedInMonth(
             userId, 
@@ -101,9 +95,9 @@ public class CheckPointCacheServiceImpl implements CheckPointCacheService {
         );
         
         int scoreInToday = ScoreConstant.SCORE.getOrDefault(countChecked + 1, 0);
-
-        // 3. Cập nhật User (JPA tự động save khi kết thúc transaction nhờ dirty checking)
-        userEntity.setLotusAll(userEntity.getLotusAll() + scoreInToday);
+        int oldScore = userRepository.findById(userId).orElse(null).getLotusAll();
+        // dùng cas để tránh spam
+        UserEntity userEntity = userRepository.addLotusAllUser(userId, scoreInToday, oldScore);
 
         // 4. Lưu log Checkpoint
         CheckPointEntity checkPointEntity = new CheckPointEntity();
